@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wholesome Little Playground</title>
+    <title>Drawing App</title>
+    <style>
+        body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: url('BackgroundPlanet.jpg') no-repeat center center fixed;
+    background-size: cover;
+    font-family: Arial, sans-serif;
+}
+
+        .controls {
+            margin: 20px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .prompt-controls {
+            width: 100%;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 10px;
+            justify-content: center;
+        }
+
+        #canvas {
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        button {
+            padding: 8px 16px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 4px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        input[type="color"], input[type="range"] {
+            margin: 0 10px;
+            vertical-align: middle;
+        }
+
+        label {
+            margin: 0 10px;
+        }
+
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            min-width: 150px;
+        }
+
+        #currentPrompt {
+            font-size: 1.2em;
+            margin: 10px 0;
+            padding: 10px;
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button id="clear">Clear Canvas</button>
+        <button id="save">Save Drawing</button>
+        <label>
+            Color:
+            <input type="color" id="colorPicker" value="#000000">
+        </label>
+        <label>
+            Brush Size:
+            <input type="range" id="brushSize" min="1" max="50" value="5">
+        </label>
+    </div>
+    <div id="currentPrompt">Select a prompt to begin...</div>
+    <div class="prompt-controls">
+        <label>
+            Category:
+            <select id="categorySelect">
+                <option value="">Select a category...</option>
+            </select>
+        </label>
+        <label>
+            Prompt:
+            <select id="promptSelect">
+                <option value="">Select a prompt...</option>
+            </select>
+        </label>
+    </div>
+    <canvas id="canvas" width="800" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const clearButton = document.getElementById('clear');
+        const saveButton = document.getElementById('save');
+        const colorPicker = document.getElementById('colorPicker');
+        const brushSize = document.getElementById('brushSize');
+        const categorySelect = document.getElementById('categorySelect');
+        const promptSelect = document.getElementById('promptSelect');
+        const currentPrompt = document.getElementById('currentPrompt');
+
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        // Embed prompts directly in the JavaScript
+        const prompts = {
+            "Silly": [
+                "Draw a food feeling proud of itself",
+                "Draw a giraffe with its favorite flower",
+                "Draw"
+            ],
+            "Serious": [
+                "Draw a map of your mind",
+                "Draw your biggest stressor today. Then draw it being resolved.",
+                "Draw a moment of peace"
+            ],
+            "Nostalgic": [
+                "Draw your first memory",
+                "Draw something that has made you feel safe"
+            ],
+            "No Prompt": [
+                "Let your imagination run free!"
+            ]
+        };
+
+        // Initialize canvas
+        ctx.strokeStyle = colorPicker.value;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.lineWidth = brushSize.value;
+
+        // Initialize prompts
+        function initializePrompts() {
+            // Populate category dropdown
+            Object.keys(prompts).forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                categorySelect.appendChild(option);
+            });
+
+            // Set the default selection to "No Prompt"
+            categorySelect.value = "No Prompt";
+            // Trigger the change event to populate the prompts for "No Prompt"
+            const event = new Event('change');
+            categorySelect.dispatchEvent(event);
+
+            //promptSelect.value = 
+        }
+
+        // Handle category selection
+        categorySelect.addEventListener('change', (e) => {
+            const category = e.target.value;
+            promptSelect.innerHTML = '<option value="">Select a prompt...</option>';
+            
+            if (category && prompts[category]) {
+                prompts[category].forEach(prompt => {
+                    const option = document.createElement('option');
+                    option.value = prompt;
+                    option.textContent = prompt;
+                    promptSelect.appendChild(option);
+                });
+
+                // Set the default selection to the first available prompt
+            if (prompts[category].length > 0) {
+                promptSelect.value = prompts[category][0];
+                currentPrompt.textContent = prompts[category][0];
+                }
+
+            }
+        });
+
+        // Handle prompt selection
+        promptSelect.addEventListener('change', (e) => {
+            const selectedPrompt = e.target.value;
+            currentPrompt.textContent = selectedPrompt || 'Select a prompt to begin...';
+        });
+
+        // Drawing functions
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            // Get mouse position relative to canvas
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            [lastX, lastY] = [x, y];
+        }
+
+        // Event listeners for mouse/touch events
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // Touch support
+        canvas.addEventListener('touchstart', handleTouch);
+        canvas.addEventListener('touchmove', handleTouch);
+        canvas.addEventListener('touchend', stopDrawing);
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            [lastX, lastY] = [e.clientX - rect.left, e.clientY - rect.top];
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            
+            if (e.type === 'touchstart') {
+                startDrawing(mouseEvent);
+            } else {
+                draw(mouseEvent);
+            }
+        }
+
+        // Clear canvas
+        clearButton.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        // Save drawing
+        saveButton.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'drawing.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+
+        // Update drawing settings
+        colorPicker.addEventListener('change', (e) => {
+            ctx.strokeStyle = e.target.value;
+        });
+
+        brushSize.addEventListener('change', (e) => {
+            ctx.lineWidth = e.target.value;
+        });
+
+        // Initialize prompts when the page loads
+        initializePrompts();
+    </script>
+</body>
+</html>
